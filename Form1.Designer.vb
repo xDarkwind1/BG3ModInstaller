@@ -32,7 +32,7 @@ Partial Class frmMain
         lblName = New Label()
         lblAuthor = New Label()
         lblBackupPath = New Label()
-        txtBackup = New TextBox()
+        txtBackupFolder = New TextBox()
         TextBox1 = New TextBox()
         cmdSetModPath = New Button()
         cmdSetGamePath = New Button()
@@ -95,7 +95,7 @@ Partial Class frmMain
         ' lblName
         ' 
         lblName.AutoSize = True
-        lblName.Font = New Font("Segoe UI", 14F, FontStyle.Regular, GraphicsUnit.Point)
+        lblName.Font = New Font("Segoe UI", 14.0F, FontStyle.Regular, GraphicsUnit.Point)
         lblName.Location = New Point(270, 36)
         lblName.Name = "lblName"
         lblName.Size = New Size(254, 25)
@@ -105,7 +105,7 @@ Partial Class frmMain
         ' lblAuthor
         ' 
         lblAuthor.AutoSize = True
-        lblAuthor.Font = New Font("Segoe UI", 8F, FontStyle.Regular, GraphicsUnit.Point)
+        lblAuthor.Font = New Font("Segoe UI", 8.0F, FontStyle.Regular, GraphicsUnit.Point)
         lblAuthor.Location = New Point(362, 23)
         lblAuthor.Name = "lblAuthor"
         lblAuthor.Size = New Size(65, 13)
@@ -121,12 +121,12 @@ Partial Class frmMain
         lblBackupPath.TabIndex = 9
         lblBackupPath.Text = "Backup Folder Path:"
         ' 
-        ' txtBackup
+        ' txtBackupFolder
         ' 
-        txtBackup.Location = New Point(429, 229)
-        txtBackup.Name = "txtBackup"
-        txtBackup.Size = New Size(320, 23)
-        txtBackup.TabIndex = 8
+        txtBackupFolder.Location = New Point(429, 229)
+        txtBackupFolder.Name = "txtBackupFolder"
+        txtBackupFolder.Size = New Size(320, 23)
+        txtBackupFolder.TabIndex = 8
         ' 
         ' TextBox1
         ' 
@@ -178,7 +178,7 @@ Partial Class frmMain
         ' frmMain
         ' 
         AccessibleName = "Main"
-        AutoScaleDimensions = New SizeF(7F, 15F)
+        AutoScaleDimensions = New SizeF(7.0F, 15.0F)
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(800, 366)
         Controls.Add(cmdClose)
@@ -187,7 +187,7 @@ Partial Class frmMain
         Controls.Add(cmdSetModPath)
         Controls.Add(TextBox1)
         Controls.Add(lblBackupPath)
-        Controls.Add(txtBackup)
+        Controls.Add(txtBackupFolder)
         Controls.Add(lblAuthor)
         Controls.Add(lblName)
         Controls.Add(lblGameDirectory)
@@ -211,7 +211,7 @@ Partial Class frmMain
     Friend WithEvents lblName As Label
     Friend WithEvents lblAuthor As Label
     Friend WithEvents lblBackupPath As Label
-    Friend WithEvents txtBackup As TextBox
+    Friend WithEvents txtBackupFolder As TextBox
     Friend WithEvents TextBox1 As TextBox
     Friend WithEvents cmdSetModPath As Button
     Friend WithEvents cmdSetGamePath As Button
