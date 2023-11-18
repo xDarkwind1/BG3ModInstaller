@@ -101,14 +101,19 @@ Public Class frmMain
         If Not MsgBox("Remove mods files (defined in " + sBackupFolder + ") from " + sGameFolder + "?", vbYesNo + vbQuestion, "Confirm Uninstall") = vbYes Then Exit Sub
 
         'Get list of files to uninstall
-        Dim sFiles As New List(Of String)
-        sFiles = readInstallationFiles(sBackupFolder)
+        Dim sFiles As List(Of String) = readInstallationFiles(sBackupFolder)
 
         'Remove mod files from game folder
-        'If Not deleteModFiles(sGameFolder, sFiles) Then Exit Sub
+        If Not DeleteModFiles(sGameFolder, sFiles) Then
+            MsgBox("At least one file from the installation definition is missing from the directory. Uninstallation cannot be completed. Recommend a clean install of BG3.", vbOKOnly + vbExclamation)
+            Exit Sub
+        End If
 
         'Restore original files
-        'If Not restoreGameFiles(sGameFolder, sBackupFolder, sFiles) Then Exit Sub
+        If Not restoreGameFiles(sGameFolder, sBackupFolder) Then
+            MsgBox("At least one file from the Backup Folder could not be restored. Recommend a clean install of BG3.", vbOKOnly + vbExclamation)
+            Exit Sub
+        End If
 
         'Inform of success and provide option to exit
         If MsgBox("Uninstalled successfully. Close the installer?", vbYesNo + vbQuestion, "Close Installer?") Then
@@ -245,6 +250,18 @@ Public Class frmMain
         Return True
     End Function
 
+    Private Function restoreGameFiles(ByVal sGameFolder As String, ByVal sBackupFolder As String) As Boolean
+        On Error GoTo PROC_ERR
+        Dim ObjFSO As New FileSystemObject
+        ObjFSO.CopyFolder(sBackupFolder, sGameFolder, False)
+        Return True
+PROC_EXIT:
+        Exit Function
+
+PROC_ERR:
+        Return False
+    End Function
+
     Private Function savePaths(ByVal sGameFolder As String, ByVal sModsFolder As String, ByVal sBackupFolder As String) As Boolean
 
         'Get %AppData% local folder
@@ -328,6 +345,41 @@ Public Class frmMain
             End If
         Next
         Return sPaths
+
+    End Function
+
+    'Deletes mod files in prep of return to vanilla state
+    Public Function DeleteModFiles(ByVal sGameFolder As String, ByVal sFiles As List(Of String)) As Boolean
+
+        'loop thru all files in the definition
+        Dim sFile As String, objFSO As New FileSystemObject
+        If sFiles.Count < 1 Then Return True
+        For Each sFile In sFiles
+
+            'build full file path
+            Dim sPath As String
+            sPath = sGameFolder + "\" + sFile
+
+            'Confirm file exists in the game folder, then delete if present
+            If objFSO.FileExists(sGameFolder + "\" + sFile) Then
+                objFSO.DeleteFile(sGameFolder + "\" + sFile)
+
+                'return a failure if a file doesn't exist
+            Else Return False
+            End If
+
+            'Remove each part of the path segment by segment
+            Do Until sPath.Length <= sGameFolder.Length
+                sPath = sPath.Remove(sPath.LastIndexOf("/"))
+
+                'test if anything is in each folder. if not, delete it
+                If objFSO.GetFolder(sPath).Files.Count = 0 And objFSO.GetFolder(sPath).SubFolders.Count = 0 Then
+                    objFSO.DeleteFolder(sPath)
+                End If
+            Loop
+        Next
+        Return True
+
 
     End Function
 
