@@ -5,6 +5,7 @@ Public Class frmMain
 
     'Loads settings file on open
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        On Error GoTo PROC_ERR
 
         'Get appdata folder if it exists
         Dim objFSO As New FileSystemObject, sPath As String
@@ -15,6 +16,9 @@ Public Class frmMain
 
         'read the FolderPaths text file and push to textboxes
         Call readPathsFile(sPath)
+
+PROC_ERR:
+        Exit Sub
     End Sub
 
     'On button click, sets the modsFolder to the chosen path
@@ -31,7 +35,7 @@ Public Class frmMain
         Dim sPath As String
         sPath = GetFolderPath("Game")
         If sPath <> vbNullString Then
-            txtModsFolder.Text = sPath
+            txtGameFolder.Text = sPath
         End If
     End Sub
 
@@ -59,29 +63,46 @@ Public Class frmMain
         If Not MsgBox("Copy mods from " & sModsFolder & " into " & sGameFolder & "?", vbYesNo + vbQuestion, "Confirm Install") = vbYes Then Exit Sub
 
         'Get list of files to install
-        Dim sFiles() As String
-        sFiles = getInstallationFiles(sModsFolder)
+        Dim sFiles As New List(Of String)
+        Dim objFSO As New FileSystemObject, objFolder As Folder
+        For Each objFolder In objFSO.GetFolder(sModsFolder).SubFolders
+            sFiles.AddRange(getInstallationFiles(objFolder.Path, objFolder.Path.Length + 1).ToList)
+        Next
 
         'Exit if no files to install and warn the user
-        If sFiles.Length = 0 Then
-            MsgBox("No files found in the supplied directory. Is the mods folder correct?", vbOK + vbExclamation, "No File Found")
+        If sFiles.Count = 0 Then
+            MsgBox("No files found in the supplied directory. Is the mods folder correct?", vbOKOnly + vbExclamation, "No File Found")
             Exit Sub
         End If
 
         'Saves list of installation files
-        If Not saveInstallationFiles(sBackupFolder, sFiles) Then Exit Sub
+        If Not saveInstallationFiles(sBackupFolder, sFiles.ToArray) Then
+            MsgBox("Could not save the list of installation files to the Backup Folder. Is the \InstalledFiles.txt file open?", vbOKOnly + vbExclamation, "Could Not Save File List")
+            Exit Sub
+        End If
 
         'Save copy of files that will be overwritten
-        If Not saveOriginalFiles(sGameFolder, sBackupFolder, sFiles) Then Exit Sub
+        If Not saveOriginalFiles(sGameFolder, sBackupFolder, sFiles.ToArray) Then
+            MsgBox("Could not copy existing game files to the Backup Folder. Do you have write permissions for that folder?", vbOKOnly + vbExclamation, "Could Not Backup Files")
+            Exit Sub
+        End If
 
         'Copy over mod files to directory
-        If Not copyModFiles(sModsFolder, sGameFolder) Then Exit Sub
+        If Not copyModFiles(sModsFolder, sGameFolder) Then
+            MsgBox("Failed to copy mod files into the game folder. Installation may have begun before this error occurred! Check the game folder")
+            Exit Sub
+        End If
 
         'Save the used paths to appdata
-        If Not savePaths(sGameFolder, sModsFolder, sBackupFolder) Then Exit Sub
+        If Not savePaths(sGameFolder, sModsFolder, sBackupFolder) Then
+            If MsgBox("Failed to save folder paths for future use. Installation otherwise completed successfully. Close the installer?", vbYesNo + vbQuestion, "Close Installer?") = vbYes Then
+                Application.Exit()
+            End If
+            Exit Sub
+        End If
 
         'Inform of success and provide option to exit
-        If MsgBox("Installation completed successfully! Close the installer?", vbYesNo + vbQuestion, "Close Installer?") Then
+        If MsgBox("Installation completed successfully! Close the installer?", vbYesNo + vbQuestion, "Close Installer?") = vbYes Then
             Application.Exit()
         End If
 
@@ -116,7 +137,7 @@ Public Class frmMain
         End If
 
         'Inform of success and provide option to exit
-        If MsgBox("Uninstalled successfully. Close the installer?", vbYesNo + vbQuestion, "Close Installer?") Then
+        If MsgBox("Uninstalled successfully. Close the installer?", vbYesNo + vbQuestion, "Close Installer?") = vbYes Then
             Application.Exit()
         End If
 
@@ -129,6 +150,8 @@ Public Class frmMain
 
     'Populates textboxes with data from saved Paths file.
     Private Sub readPathsFile(ByVal sPath As String)
+        On Error GoTo PROC_ERR
+
         Dim objFSO As New FileSystemObject
         If Not objFSO.FolderExists(sPath) Then
             Err.Raise(vbObjectError + 514, , "Invalid file path argument when reading the Paths file.")
@@ -139,7 +162,7 @@ Public Class frmMain
             Dim objReader As New System.IO.StreamReader(sPath & "FolderPaths.txt")
             Dim sTextLine As String, lIndex As Long
             For lIndex = 1 To 3
-                If objReader.Peek() <> -1 Then Exit For
+                If objReader.Peek() = -1 Then Exit For
                 sTextLine = objReader.ReadLine()
                 Select Case lIndex
                     Case 1
@@ -150,14 +173,17 @@ Public Class frmMain
                         txtBackupFolder.Text = sTextLine
                 End Select
             Next lIndex
+            objReader.Close()
         End If
+PROC_ERR:
+        Exit Sub
     End Sub
 
     'Returns a folder path based on folderdialog
     Public Shared Function GetFolderPath(ByVal sPathType As String) As String
         Dim sPath As String, objFB As New myFolderBrowser With {
             .Description = "Select the " & sPathType & " folder...",
-            .StartLocation = myFolderBrowser.enuFolderBrowserFolder.Desktop
+            .StartLocation = myFolderBrowser.enuFolderBrowserFolder.MyComputer
         }
         If objFB.ShowBrowser = DialogResult.OK Then
             sPath = objFB.Path
@@ -168,23 +194,26 @@ Public Class frmMain
     End Function
 
     'Returns an array of file path names relative to sModsFolder containing each file in the subdirectories
-    Private Function getInstallationFiles(ByVal sModsFolder As String) As String()
+    Private Function getInstallationFiles(ByVal sModFolder As String, ByVal lPathLength As Long) As String()
+        On Error GoTo PROC_ERR
 
         'Check nonexistant folder
         Dim objFSO As New FileSystemObject
-        If Not objFSO.FolderExists(sModsFolder) Then
+        If Not objFSO.FolderExists(sModFolder) Then
             Return Split("")
-            Exit Function
         End If
 
         'recurse files in folder
-        Dim objFolder As Folder, lPathLength As Long
-        objFolder = objFSO.GetFolder(sModsFolder)
+        Dim objFolder As Folder
+        objFolder = objFSO.GetFolder(sModFolder)
         Return RecurseFolderFiles(objFolder, lPathLength)
+PROC_ERR:
+        Return Split("")
     End Function
 
     'Saves a text list of each file installed
     Private Function saveInstallationFiles(ByVal sBackupFolder As String, ByVal sFiles() As String) As Boolean
+        On Error GoTo PROC_ERR
         Dim objFSO As New FileSystemObject, sFilesList As New List(Of String)
         sFilesList = sFiles.ToList
 
@@ -196,6 +225,8 @@ Public Class frmMain
             objSW.Close()
         End Using
         Return True
+PROC_ERR:
+        Return False
     End Function
 
     'Reads the 
@@ -216,6 +247,7 @@ Public Class frmMain
     Private Function saveOriginalFiles(ByVal sGameFolder As String, ByVal sBackupFolder As String, ByVal sFiles() As String) As Boolean
 
         'Push files to list. Loop thru all
+        On Error GoTo PROC_ERR
         Dim sFileList As New List(Of String), sFile As String
         sFileList = sFiles.ToList
         For Each sFile In sFileList
@@ -235,25 +267,31 @@ Public Class frmMain
             Next
 
             'Copy file to proper directory
+            On Error Resume Next
             objFSO.CopyFile(sGameFolder + sFile, sDir, True)
+            On Error GoTo PROC_ERR
         Next
         Return True
+PROC_ERR:
+        Return False
     End Function
 
     'Copies mod files into game folder
     Private Function copyModFiles(ByVal sModsFolder As String, ByVal sGameFolder As String) As Boolean
-
+        On Error GoTo PROC_ERR
         Dim objFolder As Folder, objFSO As New FileSystemObject
         For Each objFolder In objFSO.GetFolder(sModsFolder).SubFolders
             objFSO.CopyFolder(objFolder.Path & "\*", sGameFolder, True)
         Next
         Return True
+PROC_ERR:
+        Return False
     End Function
 
     Private Function restoreGameFiles(ByVal sGameFolder As String, ByVal sBackupFolder As String) As Boolean
         On Error GoTo PROC_ERR
         Dim ObjFSO As New FileSystemObject
-        ObjFSO.CopyFolder(sBackupFolder, sGameFolder, False)
+        ObjFSO.CopyFolder(sBackupFolder + "\*", sGameFolder + "\", True)
         Return True
 PROC_EXIT:
         Exit Function
@@ -263,6 +301,7 @@ PROC_ERR:
     End Function
 
     Private Function savePaths(ByVal sGameFolder As String, ByVal sModsFolder As String, ByVal sBackupFolder As String) As Boolean
+        On Error GoTo PROC_ERR
 
         'Get %AppData% local folder
         Dim objFSO As New FileSystemObject, sPath As String
@@ -292,11 +331,13 @@ PROC_ERR:
         End Using
 
         Return True
+PROC_ERR:
+        Return False
     End Function
 
     'Returns an array of file paths less the root folder path within a folder, including all subfolders recursively.
     Public Function RecurseFolderFiles(ByRef r_objFolder As Folder, ByVal lPathLength As Long) As String()
-
+        On Error GoTo PROC_ERR
         'Get all subfolder files
         Dim objFolder As Folder, objFSO As New FileSystemObject
         Dim sTempFiles() As String, sFiles As New List(Of String), lIndex As Long
@@ -314,10 +355,12 @@ PROC_ERR:
             sFiles.Add(sTempFiles(lIndex))
         Next
         Return sFiles.ToArray()
+PROC_ERR:
+        Return Split("")
     End Function
 
     Public Function TestPaths() As List(Of String)
-
+        On Error GoTo PROC_ERR
         'pull saved directories, or prompt for new ones
         Dim sPaths As New List(Of String)
         If txtGameFolder.Text <> vbNullString Then
@@ -345,11 +388,14 @@ PROC_ERR:
             End If
         Next
         Return sPaths
-
+PROC_ERR:
+        sPaths.Clear()
+        Return sPaths
     End Function
 
     'Deletes mod files in prep of return to vanilla state
     Public Function DeleteModFiles(ByVal sGameFolder As String, ByVal sFiles As List(Of String)) As Boolean
+        On Error GoTo PROC_ERR
 
         'loop thru all files in the definition
         Dim sFile As String, objFSO As New FileSystemObject
@@ -370,28 +416,33 @@ PROC_ERR:
 
             'Remove each part of the path segment by segment
             Do Until sPath.Length <= sGameFolder.Length
-                sPath = sPath.Remove(sPath.LastIndexOf("/"))
+                sPath = sPath.Remove(sPath.LastIndexOf("\"))
 
                 'test if anything is in each folder. if not, delete it
                 If objFSO.GetFolder(sPath).Files.Count = 0 And objFSO.GetFolder(sPath).SubFolders.Count = 0 Then
                     objFSO.DeleteFolder(sPath)
+                Else
+                    Exit Do
                 End If
             Loop
         Next
         Return True
 
-
+PROC_ERR:
+        Return False
     End Function
 
     'Returns an array of file paths less the root folder path within a given folder
     Public Shared Function ReturnFiles(ByRef r_objFolder As Folder, ByVal lPathLength As Long) As String()
-
+        On Error GoTo PROC_ERR
         'Return all files in a given folder
         Dim objFile As File, sFiles As New List(Of String)
         For Each objFile In r_objFolder.Files
-            sFiles.Add(objFile.Path.Substring(objFile.Path.Length - lPathLength - 1))
+            sFiles.Add(objFile.Path.Substring(lPathLength))
         Next objFile
         Return sFiles.ToArray()
+PROC_ERR:
+        Return Split("")
     End Function
 
 End Class

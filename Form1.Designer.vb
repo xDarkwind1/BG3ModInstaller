@@ -95,7 +95,7 @@ Partial Class frmMain
         ' lblName
         ' 
         lblName.AutoSize = True
-        lblName.Font = New Font("Segoe UI", 14.0F, FontStyle.Regular, GraphicsUnit.Point)
+        lblName.Font = New Font("Segoe UI", 14F, FontStyle.Regular, GraphicsUnit.Point)
         lblName.Location = New Point(270, 36)
         lblName.Name = "lblName"
         lblName.Size = New Size(254, 25)
@@ -105,7 +105,7 @@ Partial Class frmMain
         ' lblAuthor
         ' 
         lblAuthor.AutoSize = True
-        lblAuthor.Font = New Font("Segoe UI", 8.0F, FontStyle.Regular, GraphicsUnit.Point)
+        lblAuthor.Font = New Font("Segoe UI", 8F, FontStyle.Regular, GraphicsUnit.Point)
         lblAuthor.Location = New Point(362, 23)
         lblAuthor.Name = "lblAuthor"
         lblAuthor.Size = New Size(65, 13)
@@ -178,7 +178,7 @@ Partial Class frmMain
         ' frmMain
         ' 
         AccessibleName = "Main"
-        AutoScaleDimensions = New SizeF(7.0F, 15.0F)
+        AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(800, 366)
         Controls.Add(cmdClose)
@@ -197,6 +197,7 @@ Partial Class frmMain
         Controls.Add(cmdUninstall)
         Controls.Add(cmdInstall)
         Name = "frmMain"
+        StartPosition = FormStartPosition.CenterScreen
         Text = "Darkwind's Baldur's Gate 3 Mod Installer"
         ResumeLayout(False)
         PerformLayout()
